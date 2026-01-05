@@ -128,18 +128,33 @@ export const generateStoryIdeas = async (category: string, lang: string, apiKey?
 export const generateStory = async (config: StoryConfig, voiceConfig: VoiceConfig, apiKey?: string): Promise<StoryOutput> => {
   return callWithRetry(async () => {
       const ai = getAI(apiKey);
-      const langName = config.language;
       
-      let accentInstruction = '';
+      let dialectSystemInstruction = '';
       if (config.language === 'ar') {
-         accentInstruction = `The narrative MUST be in ${voiceConfig.accent} Arabic dialect.`;
+         switch(voiceConfig.accent) {
+             case 'egyptian':
+                 dialectSystemInstruction = `You are an expert Egyptian screenwriter. You MUST write the 'narrative' fields in authentic Egyptian Arabic (Ammiya/Slang). Use distinctive words like 'keda', 'mish', 'aywa', 'ezzay', 'ya 3am', '3aiz'. STRICTLY AVOID Levantine (e.g. 'sho', 'baddi') or Gulf (e.g. 'shlonak', 'abi') terms. This is critical for the audio generation that follows.`;
+                 break;
+             case 'shami':
+                 dialectSystemInstruction = `You are an expert Levantine screenwriter. You MUST write the 'narrative' fields in authentic Shami Arabic (Levantine). Use distinctive words like 'kifak', 'sho', 'heik', 'baddi', 'haly'. STRICTLY AVOID Egyptian or Gulf slang.`;
+                 break;
+             case 'khaleeji':
+                 dialectSystemInstruction = `You are an expert Khaleeji screenwriter. You MUST write the 'narrative' fields in authentic Gulf Arabic. Use words like 'shlonak', 'zin', 'abi', 'wayed'.`;
+                 break;
+             case 'maghrebi':
+                 dialectSystemInstruction = `You are an expert Moroccan screenwriter. Write in Darija.`;
+                 break;
+             case 'fusha':
+                 dialectSystemInstruction = `You are a classical Arabic writer. Write in strict Modern Standard Arabic (Fusha) with perfect grammar.`;
+                 break;
+             default:
+                 dialectSystemInstruction = `Write in neutral, standard Arabic.`;
+         }
       } else {
-         accentInstruction = `Language: ${config.language}.`;
+          dialectSystemInstruction = `Write in ${config.language}.`;
       }
       
       const prompt = `
-        You are a professional screenwriter and visual director. Create a cinematic story script.
-
         STORY SETTINGS:
         - Genre: ${config.category}
         - Premise: ${config.premise}
@@ -147,17 +162,13 @@ export const generateStory = async (config: StoryConfig, voiceConfig: VoiceConfi
         - Pacing: ${config.pacing}
         - Characters: ${config.characterCount} main characters. (${config.protagonist} vs ${config.antagonist})
 
-        CRITICAL INSTRUCTIONS FOR CONSISTENCY:
-        1. **DEFINE VISUAL SIGNATURES**: Before writing scenes, mentally define a specific "Visual Signature" for every character (e.g. "Jack: 30s, scar on left cheek, wearing a dirty brown leather jacket and grey scarf").
+        INSTRUCTIONS:
+        1. **DEFINE VISUAL SIGNATURES**: Before writing scenes, mentally define a specific "Visual Signature" for every character.
         2. **SEPARATION OF CONCERNS**:
-           - **Narrative Field**: Write ONLY the story (dialogue, action, feelings). Do NOT describe their clothes, hair color, or static visual details here. Keep it flowy and natural for audio narration.
-           - **ImagePrompt Field**: This is for the AI image generator. You MUST repeat the FULL "Visual Signature" for every character present in the scene. Never say "Jack looks angry". Say "A man with a scar on his left cheek wearing a brown leather jacket and grey scarf looking angry...".
-           - **MotionPrompt Field**: Describe camera movement (Pan, Zoom, Tilt) and the specific action occurring.
+           - **Narrative Field**: Write ONLY the story text (dialogue, action) meant for audio narration. Keep it conversational and strictly adhering to the requested DIALECT in the system instruction.
+           - **ImagePrompt Field**: ENGLISH ONLY. This is for the AI image generator. You MUST repeat the FULL "Visual Signature" (hair, clothes, face) for every character present in the scene.
+           - **MotionPrompt Field**: ENGLISH ONLY. Describe camera movement (Pan, Zoom, Tilt) and the specific action occurring.
 
-        OUTPUT LANGUAGE:
-        - Narrative: ${langName} (${accentInstruction})
-        - ImagePrompt/MotionPrompt: ENGLISH ONLY (Technical details)
-        
         Generate exactly ${config.sceneCount} scenes.
       `;
 
@@ -165,6 +176,7 @@ export const generateStory = async (config: StoryConfig, voiceConfig: VoiceConfi
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
+          systemInstruction: dialectSystemInstruction,
           responseMimeType: 'application/json',
           responseSchema: outputSchema,
           temperature: 0.85,
@@ -179,14 +191,35 @@ export const generateStory = async (config: StoryConfig, voiceConfig: VoiceConfi
 export const generateSpeech = async (text: string, voiceType: string, apiKey?: string): Promise<string> => {
     return callWithRetry(async () => {
         const ai = getAI(apiKey);
-        let voiceName = 'Puck'; // Default
+        let voiceName = 'Puck'; // Default fallback
+        
+        // --- STRICT VOICE MAPPING ---
+        // Gemini Voices:
+        // - Charon: Male, Deep, Grave.
+        // - Fenrir: Male, Resonant, Wild.
+        // - Puck: Male, Impish, Neutral (Sometimes sounds younger/softer).
+        // - Kore: Female, Gentle.
+        // - Aoede: Female, Majestic.
+        
         switch (voiceType) {
-            case 'man_deep': voiceName = 'Fenrir'; break;
-            case 'man_soft': voiceName = 'Puck'; break; // Puck is soft/neutral
-            case 'man_drama': voiceName = 'Charon'; break;
-            case 'woman': voiceName = 'Kore'; break;
-            case 'child': voiceName = 'Puck'; break; // Puck is higher pitched, better for child than Zephyr
-            default: voiceName = 'Puck';
+            case 'man_deep': 
+                voiceName = 'Charon'; // Definitely Male
+                break; 
+            case 'man_soft': 
+                voiceName = 'Puck'; // Lighter male voice. 
+                // Fenrir is too rough. Puck is the only "soft" male option available in standard set.
+                break; 
+            case 'man_drama': 
+                voiceName = 'Fenrir'; // Dramatic/Rough Male
+                break;
+            case 'woman': 
+                voiceName = 'Kore'; // Definitely Female
+                break;
+            case 'child': 
+                voiceName = 'Puck'; // Pitch is naturally higher/lighter
+                break;
+            default: 
+                voiceName = 'Charon';
         }
 
         const response = await ai.models.generateContent({
@@ -208,7 +241,6 @@ export const generateSpeech = async (text: string, voiceType: string, apiKey?: s
         const pcmData = new Int16Array(bytes.buffer);
         const wavBuffer = addWavHeader(pcmData, 24000);
         
-        // Convert back to base64 efficiently
         const wavBytes = new Uint8Array(wavBuffer);
         let binary = '';
         const wavLen = wavBytes.byteLength;
@@ -258,13 +290,19 @@ export const generateImage = async (
             return `data:image/jpeg;base64,${base64}`;
         } 
         else {
+            const isPro = settings.imageModel.includes('gemini-3-pro');
+            const config: any = {};
+            if (isPro) {
+                 config.imageConfig = {
+                     aspectRatio: settings.aspectRatio,
+                     imageSize: "1K"
+                 };
+            }
+
             const response = await ai.models.generateContent({
                 model: settings.imageModel,
                 contents: { parts: [{ text: finalPrompt }] },
-                config: {
-                    // @ts-ignore
-                    imageConfig: { aspectRatio: settings.aspectRatio }
-                }
+                config: config
             });
 
             for (const cand of response.candidates || []) {
@@ -280,6 +318,33 @@ export const generateImage = async (
 };
 
 export const generateVideo = async (prompt: string, imageBase64: string, settings: MediaSettings, apiKey?: string) => {
+    if (settings.customVideoEndpoint && settings.customVideoKey && settings.videoModel.includes('kling')) {
+        try {
+            const response = await fetch(settings.customVideoEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${settings.customVideoKey}`,
+                    'X-API-KEY': settings.customVideoKey
+                },
+                body: JSON.stringify({
+                    model: settings.videoModel,
+                    prompt: prompt,
+                    image_base64: imageBase64,
+                    resolution: settings.videoResolution
+                })
+            });
+
+            if (!response.ok) throw new Error(`External API Error: ${response.statusText}`);
+            const data = await response.json();
+            const resultUrl = data.url || data.video_url || data.data || data.output?.video; 
+            if (!resultUrl) throw new Error("No video URL in response");
+            return resultUrl;
+        } catch (e: any) {
+            throw new Error(`Custom Video API Failed: ${e.message}`);
+        }
+    }
+
     const ai = getAI(apiKey);
     const cleanBase64 = imageBase64.split(',')[1];
     const mimeType = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';

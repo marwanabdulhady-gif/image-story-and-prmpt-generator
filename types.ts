@@ -63,6 +63,7 @@ export type ImageModel =
 export type VideoModel = 
   | 'veo-3.1-fast-generate-preview' 
   | 'veo-3.1-generate-preview'
+  | 'kling-custom'
   | string;
 
 export interface MediaSettings {
@@ -70,6 +71,8 @@ export interface MediaSettings {
   imageModel: ImageModel;
   videoModel: VideoModel;
   videoResolution: '720p' | '1080p';
+  customVideoEndpoint?: string; // For Kling or other external APIs
+  customVideoKey?: string;      // Key for external API
 }
 
 export interface Project {
@@ -170,16 +173,20 @@ export const TRANSLATIONS = {
     customModelPlaceholder: 'اسم النموذج المخصص (مثال: gemini-experimental)',
     aspectRatio: 'أبعاد الصورة',
     modelQuality: 'نموذج التوليد',
-    model_fast: 'سريع (Flash/Nano)',
-    pro: 'احترافي (Pro)',
-    artistic: 'فني (Imagen 3)',
-    quality: 'جودة عالية (Veo)',
+    model_fast: 'مجاني (Flash/Nano)',
+    pro: 'احترافي (Pro) - يتطلب دفع',
+    artistic: 'فني (Imagen 3) - يتطلب دفع',
+    quality: 'جودة عالية (Veo) - يتطلب دفع',
+    kling: 'Kling AI (مخصص)',
+    customVideoEndpoint: 'رابط API الفيديو المخصص',
+    customVideoKey: 'مفتاح API الفيديو المخصص',
     resolution: 'الدقة',
     platform_youtube: 'يوتيوب (16:9)',
     platform_tiktok: 'تيك توك (9:16)',
     platform_insta: 'انستقرام (1:1)',
     back: 'رجوع',
     generate: 'تشغيل القصة',
+    regenerate: 'إعادة التوليد',
     chooseCategory: 'اختر نوع القصة',
     yourIdea: 'فكرة القصة',
     yourIdeaPlaceholder: 'اكتب الفكرة الأساسية...',
@@ -276,16 +283,20 @@ export const TRANSLATIONS = {
     customModelPlaceholder: 'Custom Model ID (e.g. gemini-experimental)',
     aspectRatio: 'Aspect Ratio',
     modelQuality: 'Generation Model',
-    model_fast: 'Fast (Flash/Nano)',
-    pro: 'Professional (Pro)',
-    artistic: 'Artistic (Imagen 3)',
-    quality: 'High Quality (Veo)',
+    model_fast: 'Free (Flash/Nano)',
+    pro: 'Professional (Pro) - Paid',
+    artistic: 'Artistic (Imagen 3) - Paid',
+    quality: 'High Quality (Veo) - Paid',
+    kling: 'Kling AI (Custom)',
+    customVideoEndpoint: 'Custom Video API Endpoint',
+    customVideoKey: 'Custom Video API Key',
     resolution: 'Resolution',
     platform_youtube: 'YouTube (16:9)',
     platform_tiktok: 'TikTok/Reels (9:16)',
     platform_insta: 'Square (1:1)',
     back: 'Back',
     generate: 'Generate Story',
+    regenerate: 'Regenerate',
     chooseCategory: 'Choose Category',
     yourIdea: 'Story Concept',
     yourIdeaPlaceholder: 'The core concept...',

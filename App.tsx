@@ -9,7 +9,7 @@ import { StepConfig } from './components/StepConfig';
 import { StepLoading } from './components/StepLoading';
 import { StepResult } from './components/StepResult';
 import { generateStory, generateSpeech, generateImage, generateVideo } from './services/geminiService';
-import { Sparkles, Globe, Download, Save, Upload, Image as ImageIcon, Video, Music, Settings, X, Mic, Plus, Camera, Palette, Sun, User, LayoutTemplate, AlertCircle } from 'lucide-react';
+import { Sparkles, Globe, Download, Save, Upload, Image as ImageIcon, Video, Music, Settings, X, Mic, Plus, Camera, Palette, Sun, User, LayoutTemplate, AlertCircle, RefreshCw, CreditCard, Info } from 'lucide-react';
 
 // Factory functions to ensure fresh state
 const getInitialConfig = (): StoryConfig => ({
@@ -42,9 +42,11 @@ const getInitialImageStyle = (): ImageStyleConfig => ({
 
 const getInitialMediaSettings = (): MediaSettings => ({
     aspectRatio: '16:9',
-    imageModel: 'gemini-2.5-flash-image',
-    videoModel: 'veo-3.1-fast-generate-preview',
-    videoResolution: '720p'
+    imageModel: 'gemini-2.5-flash-image', // Default to free tier
+    videoModel: 'veo-3.1-fast-generate-preview', // Will fail if free, handled in UI
+    videoResolution: '720p',
+    customVideoEndpoint: '',
+    customVideoKey: ''
 });
 
 const App: React.FC = () => {
@@ -183,7 +185,11 @@ const App: React.FC = () => {
         setProject(p => ({ ...p, output: { ...p.output!, scenes: newScenes } }));
     } catch (err: any) {
         console.error(err);
-        setError(`Image failed: ${err.message}`);
+        if (err.message.includes('403') || err.message.includes('Paid')) {
+            setError("Billing Error: This model requires a Paid Google Cloud Project. Please use 'Flash' for free generation or add a paid API key.");
+        } else {
+            setError(`Image failed: ${err.message}`);
+        }
     } finally {
         setLoadingScene(null);
     }
@@ -210,6 +216,7 @@ const App: React.FC = () => {
         return;
     }
     
+    // Key Check for Veo models (skip if Kling/Custom)
     if (project.mediaSettings.videoModel.includes('veo') && !project.apiKey && (window as any).aistudio?.hasSelectedApiKey) {
          const hasKey = await (window as any).aistudio.hasSelectedApiKey();
          if (!hasKey) {
@@ -232,8 +239,10 @@ const App: React.FC = () => {
              if((window as any).aistudio?.openSelectKey) {
                  setTimeout(() => (window as any).aistudio.openSelectKey(), 1000);
              }
+         } else if (err.message.includes('Paid Project') || err.message.includes('billing')) {
+             setError("Billing Required: Veo video generation requires a Paid Google Cloud Project. Please enable billing or switch to a free model (if available).");
          } else {
-             setError(`Video failed: ${err.message}. Ensure you have a paid API Key configured.`);
+             setError(`Video failed: ${err.message}.`);
          }
     } finally {
         setLoadingScene(null);
@@ -328,7 +337,7 @@ const App: React.FC = () => {
                   <div className="space-y-6">
                       {/* API Key Section */}
                       <div>
-                          <label className="block text-sm text-slate-400 mb-2 font-semibold">Custom API Key</label>
+                          <label className="block text-sm text-slate-400 mb-2 font-semibold">Custom Gemini API Key</label>
                           <input 
                             type="password"
                             value={project.apiKey}
@@ -337,6 +346,33 @@ const App: React.FC = () => {
                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none"
                           />
                           <p className="text-xs text-slate-500 mt-2">Required for Veo and Imagen. Overrides default.</p>
+                      </div>
+
+                      {/* Kling / Custom Video API */}
+                      <div className="border-t border-slate-700 pt-4">
+                          <h3 className="text-sm font-bold text-white mb-3">External Video API (e.g., Kling)</h3>
+                          <div className="space-y-3">
+                              <div>
+                                  <label className="block text-xs text-slate-400 mb-1">{t.customVideoEndpoint}</label>
+                                  <input 
+                                    type="text"
+                                    value={project.mediaSettings.customVideoEndpoint}
+                                    onChange={(e) => handleMediaSettingsUpdate({customVideoEndpoint: e.target.value})}
+                                    placeholder="https://api.kling.ai/v1/videos"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs"
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-xs text-slate-400 mb-1">{t.customVideoKey}</label>
+                                  <input 
+                                    type="password"
+                                    value={project.mediaSettings.customVideoKey}
+                                    onChange={(e) => handleMediaSettingsUpdate({customVideoKey: e.target.value})}
+                                    placeholder="sk-..."
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs"
+                                  />
+                              </div>
+                          </div>
                       </div>
 
                       {/* Image Model Customization */}
@@ -388,6 +424,7 @@ const App: React.FC = () => {
                           >
                              <option value="veo-3.1-fast-generate-preview">{t.model_fast}</option>
                              <option value="veo-3.1-generate-preview">{t.quality}</option>
+                             <option value="kling-custom">{t.kling}</option>
                              <option value="custom">Use Custom Model ID...</option>
                           </select>
 
@@ -551,16 +588,16 @@ const App: React.FC = () => {
 
         {/* --- AUDIO TAB --- */}
         {currentTab === 'audio' && (
-            <div className="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 max-w-7xl mx-auto">
                  {/* Audio Settings Sidebar */}
-                 <div className="w-full md:w-72 flex-shrink-0">
+                 <div className="w-full">
                     <div className="bg-surface p-6 rounded-2xl sticky top-24 border border-slate-700">
                         <div className="flex items-center gap-2 mb-6 text-accent">
                             <Mic size={20} />
                             <h3 className="font-semibold text-white">{t.voiceSettings}</h3>
                         </div>
 
-                         {/* Language Selector in Voice Tab */}
+                        {/* RESTORED LANGUAGE SELECTOR */}
                          <div className="mb-6 pb-6 border-b border-slate-700/50">
                             <label className="text-xs text-slate-400 mb-2 block font-bold uppercase">{t.language}</label>
                             <select 
@@ -588,12 +625,21 @@ const App: React.FC = () => {
                             selectedValue={project.voiceConfig.tone}
                             onChange={(val: any) => handleVoiceUpdate({tone: val})}
                         />
+                        
+                        {/* RESTORED ACCENT SELECTOR */}
                          <OptionGroup 
                             title={t.accent} 
                             options={['neutral', 'fusha', 'egyptian', 'khaleeji', 'shami', 'maghrebi']} 
                             selectedValue={project.voiceConfig.accent}
                             onChange={(val: any) => handleVoiceUpdate({accent: val})}
                         />
+
+                         <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            <p className="text-xs text-blue-200 flex items-start gap-2">
+                                <Info size={14} className="shrink-0 mt-0.5"/>
+                                Note: Changing accent/language here affects future text generation. To change current audio dialect, you may need to edit the script text manually or regenerate the script.
+                            </p>
+                         </div>
                     </div>
                 </div>
 
@@ -601,32 +647,45 @@ const App: React.FC = () => {
                     {!project.output ? (
                         <div className="text-center py-20 text-slate-500 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">{t.noScript}</div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {project.output.scenes.map((scene, idx) => (
-                                <div key={idx} className="bg-surface p-6 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
+                                <div key={idx} className="bg-surface p-6 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors flex flex-col h-full">
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="font-bold text-white">Scene {scene.sceneNumber}</h3>
+                                    </div>
+                                    <p className="text-slate-300 mb-4 font-light leading-relaxed flex-grow" dir="auto">{scene.narrative}</p>
+                                    
+                                    <div className="mt-auto pt-4 border-t border-slate-700/50">
                                         {scene.audioData ? (
-                                            <button 
-                                                onClick={() => downloadFile(`data:audio/wav;base64,${scene.audioData}`, `scene-${scene.sceneNumber}.wav`)}
-                                                className="flex items-center gap-2 bg-slate-800 hover:bg-primary hover:text-white px-3 py-1.5 rounded-lg text-xs transition-colors"
-                                            >
-                                                <Download size={14} /> {t.downloadMp3}
-                                            </button>
+                                            <div className="space-y-3">
+                                                <audio controls src={`data:audio/wav;base64,${scene.audioData}`} className="w-full h-10 rounded-lg" />
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => downloadFile(`data:audio/wav;base64,${scene.audioData}`, `scene-${scene.sceneNumber}.wav`)}
+                                                        className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-xs font-bold transition-colors"
+                                                    >
+                                                        <Download size={14} /> {t.downloadMp3}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleGenerateAudio(idx)}
+                                                        disabled={loadingScene === idx}
+                                                        className="px-3 bg-slate-800 hover:bg-primary hover:text-white rounded-lg transition-colors"
+                                                        title={t.regenerate}
+                                                    >
+                                                        <RefreshCw size={14} className={loadingScene === idx ? "animate-spin" : ""} />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         ) : (
                                             <button 
                                                 onClick={() => handleGenerateAudio(idx)}
                                                 disabled={loadingScene === idx}
-                                                className="btn-primary text-xs px-4 py-2 rounded-lg"
+                                                className="w-full btn-primary text-sm py-3 rounded-lg"
                                             >
-                                                {loadingScene === idx ? t.generating : <><Music size={14} className="inline mx-1"/> Generate</>}
+                                                {loadingScene === idx ? t.generating : <><Music size={16} className="inline mx-2"/> Generate Audio</>}
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-slate-300 mb-4 font-light leading-relaxed" dir="auto">{scene.narrative}</p>
-                                    {scene.audioData && (
-                                        <audio controls src={`data:audio/wav;base64,${scene.audioData}`} className="w-full h-10 mt-2 rounded-lg" />
-                                    )}
                                 </div>
                             ))}
                         </div>
@@ -637,9 +696,9 @@ const App: React.FC = () => {
 
         {/* --- VISUALS TAB --- */}
         {currentTab === 'visuals' && (
-             <div className="flex flex-col md:flex-row gap-6 max-w-7xl mx-auto">
+             <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 max-w-7xl mx-auto">
                 {/* Visual Settings Sidebar */}
-                <div className="w-full md:w-72 flex-shrink-0">
+                <div className="w-full">
                     <div className="bg-surface p-6 rounded-2xl sticky top-24 border border-slate-700 h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
                         <h3 className="font-bold mb-6 flex items-center gap-2 text-white"><ImageIcon size={18}/> {t.visualStyle}</h3>
                         
@@ -719,7 +778,8 @@ const App: React.FC = () => {
                             >
                                 <option value="veo-3.1-fast-generate-preview">{t.model_fast}</option>
                                 <option value="veo-3.1-generate-preview">{t.quality}</option>
-                                 {!['veo-3.1-fast-generate-preview', 'veo-3.1-generate-preview'].includes(project.mediaSettings.videoModel) && (
+                                <option value="kling-custom">{t.kling}</option>
+                                 {!['veo-3.1-fast-generate-preview', 'veo-3.1-generate-preview', 'kling-custom'].includes(project.mediaSettings.videoModel) && (
                                     <option value={project.mediaSettings.videoModel}>Custom: {project.mediaSettings.videoModel}</option>
                                 )}
                             </select>
@@ -727,25 +787,25 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Visuals Main Content */}
+                {/* Visuals Main Content - GRID LAYOUT */}
                 <div className="flex-1">
                     {!project.output ? (
                          <div className="text-center py-20 text-slate-500 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">{t.noScript}</div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {project.output.scenes.map((scene, idx) => (
-                                <div key={idx} className="bg-surface p-6 rounded-2xl border border-slate-700">
+                                <div key={idx} className="bg-surface p-5 rounded-2xl border border-slate-700 flex flex-col">
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="flex-1 mr-4">
                                             <h3 className="font-bold text-white mb-1">Scene {scene.sceneNumber}</h3>
-                                            <p className="text-sm text-slate-400 line-clamp-2">{scene.imagePrompt}</p>
+                                            <p className="text-xs text-slate-400 line-clamp-2">{scene.imagePrompt}</p>
                                         </div>
                                     </div>
                                     
-                                    <div className="grid md:grid-cols-2 gap-4 mt-4">
+                                    <div className="space-y-4 flex-grow">
                                         {/* Image Section */}
                                         <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-800">
-                                            <div className="flex justify-between items-center mb-3">
+                                            <div className="flex justify-between items-center mb-2">
                                                 <span className="text-xs font-bold text-primary flex items-center gap-1"><ImageIcon size={12}/> Image</span>
                                                 <div className="flex gap-2">
                                                     <label className="cursor-pointer p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors" title={t.uploadImage}>
@@ -785,7 +845,7 @@ const App: React.FC = () => {
 
                                         {/* Video Section */}
                                         <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-800">
-                                            <div className="flex justify-between items-center mb-3">
+                                            <div className="flex justify-between items-center mb-2">
                                                 <span className="text-xs font-bold text-accent flex items-center gap-1"><Video size={12}/> Video</span>
                                                 <button 
                                                     onClick={() => handleGenerateVideo(idx)} 
