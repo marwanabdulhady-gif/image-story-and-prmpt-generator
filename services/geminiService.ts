@@ -76,9 +76,12 @@ const outputSchema: Schema = {
         type: Type.OBJECT,
         properties: {
           sceneNumber: { type: Type.INTEGER },
-          narrative: { type: Type.STRING },
-          imagePrompt: { type: Type.STRING, description: "Highly detailed, visual description of the scene for an image generator. Include specific details about lighting, camera angle, and character appearance." },
-          motionPrompt: { type: Type.STRING, description: "Description of the movement in the scene for a video generator (e.g., pan right, character walks forward)." }
+          narrative: { type: Type.STRING, description: "The story text for narration. Focus on action, dialogue, and internal thought. DO NOT include visual descriptions of clothing or character appearance here." },
+          imagePrompt: { 
+              type: Type.STRING, 
+              description: "A standalone, highly detailed visual description for an image generator. YOU MUST include the FULL physical description of characters (hair, clothes, face) every time they appear to ensure consistency." 
+          },
+          motionPrompt: { type: Type.STRING, description: "Technical instructions for camera movement and character action (e.g. 'Slow pan right as character walks forward')." }
         },
         required: ["sceneNumber", "narrative", "imagePrompt", "motionPrompt"]
       }
@@ -87,10 +90,45 @@ const outputSchema: Schema = {
   required: ["title", "summary", "scenes"]
 };
 
+// Ideas Schema for Auto-fill
+const ideasSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        premise: { type: Type.STRING },
+        setting: { type: Type.STRING },
+        protagonist: { type: Type.STRING },
+        antagonist: { type: Type.STRING },
+        supportingCharacters: { type: Type.STRING },
+        pacing: { type: Type.STRING, enum: ['slow', 'balanced', 'fast'] },
+        plotTwist: { type: Type.STRING, enum: ['none', 'mild', 'shocking'] },
+    },
+    required: ["premise", "setting", "protagonist", "antagonist"]
+};
+
+export const generateStoryIdeas = async (category: string, lang: string, apiKey?: string): Promise<Partial<StoryConfig>> => {
+    return callWithRetry(async () => {
+        const ai = getAI(apiKey);
+        const prompt = `Generate creative story details for a '${category}' story. Language: ${lang}. Make the characters unique and the setting vivid.`;
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: ideasSchema,
+                temperature: 0.9,
+            }
+        });
+        
+        if (!response.text) throw new Error("No ideas generated.");
+        return JSON.parse(response.text);
+    });
+};
+
 export const generateStory = async (config: StoryConfig, voiceConfig: VoiceConfig, apiKey?: string): Promise<StoryOutput> => {
   return callWithRetry(async () => {
       const ai = getAI(apiKey);
-      const langName = config.language; // 'ar' | 'en' etc
+      const langName = config.language;
       
       let accentInstruction = '';
       if (config.language === 'ar') {
@@ -100,28 +138,27 @@ export const generateStory = async (config: StoryConfig, voiceConfig: VoiceConfi
       }
       
       const prompt = `
-        Create a highly detailed cinematic story script.
-        
-        OUTPUT CONFIGURATION:
-        - Main Language: ${langName} (${accentInstruction})
-        - ImagePrompt, MotionPrompt: ENGLISH (Must be very detailed for AI generation)
+        You are a professional screenwriter and visual director. Create a cinematic story script.
 
-        STORY CONFIGURATION:
+        STORY SETTINGS:
         - Genre: ${config.category}
         - Premise: ${config.premise}
         - Setting: ${config.setting}
         - Pacing: ${config.pacing}
-        - Plot Twist Level: ${config.plotTwist}
+        - Characters: ${config.characterCount} main characters. (${config.protagonist} vs ${config.antagonist})
 
-        CHARACTERS:
-        - Main Cast Size: ${config.characterCount}
-        - Protagonist: ${config.protagonist}
-        - Antagonist: ${config.antagonist}
-        - Supporting: ${config.supportingCharacters}
+        CRITICAL INSTRUCTIONS FOR CONSISTENCY:
+        1. **DEFINE VISUAL SIGNATURES**: Before writing scenes, mentally define a specific "Visual Signature" for every character (e.g. "Jack: 30s, scar on left cheek, wearing a dirty brown leather jacket and grey scarf").
+        2. **SEPARATION OF CONCERNS**:
+           - **Narrative Field**: Write ONLY the story (dialogue, action, feelings). Do NOT describe their clothes, hair color, or static visual details here. Keep it flowy and natural for audio narration.
+           - **ImagePrompt Field**: This is for the AI image generator. You MUST repeat the FULL "Visual Signature" for every character present in the scene. Never say "Jack looks angry". Say "A man with a scar on his left cheek wearing a brown leather jacket and grey scarf looking angry...".
+           - **MotionPrompt Field**: Describe camera movement (Pan, Zoom, Tilt) and the specific action occurring.
 
-        STRUCTURE:
-        - Generate exactly ${config.sceneCount} scenes.
-        - Tone: ${voiceConfig.tone}.
+        OUTPUT LANGUAGE:
+        - Narrative: ${langName} (${accentInstruction})
+        - ImagePrompt/MotionPrompt: ENGLISH ONLY (Technical details)
+        
+        Generate exactly ${config.sceneCount} scenes.
       `;
 
       const response = await ai.models.generateContent({
@@ -142,13 +179,13 @@ export const generateStory = async (config: StoryConfig, voiceConfig: VoiceConfi
 export const generateSpeech = async (text: string, voiceType: string, apiKey?: string): Promise<string> => {
     return callWithRetry(async () => {
         const ai = getAI(apiKey);
-        let voiceName = 'Puck';
+        let voiceName = 'Puck'; // Default
         switch (voiceType) {
             case 'man_deep': voiceName = 'Fenrir'; break;
-            case 'man_soft': voiceName = 'Puck'; break;
+            case 'man_soft': voiceName = 'Puck'; break; // Puck is soft/neutral
             case 'man_drama': voiceName = 'Charon'; break;
             case 'woman': voiceName = 'Kore'; break;
-            case 'child': voiceName = 'Zephyr'; break;
+            case 'child': voiceName = 'Puck'; break; // Puck is higher pitched, better for child than Zephyr
             default: voiceName = 'Puck';
         }
 
@@ -201,7 +238,7 @@ export const generateImage = async (
             style.colorGrade !== 'None' ? `Color Grading: ${style.colorGrade}` : '',
             style.characterLook !== 'None' ? `Character Look: ${style.characterLook}` : '',
             style.clothingStyle !== 'None' ? `Clothes: ${style.clothingStyle}` : '',
-            "High resolution", "8k", "Highly detailed"
+            "High resolution", "8k", "Highly detailed", "Cinematic composition"
         ].filter(Boolean).join(", ");
 
         const finalPrompt = `${basePrompt}. \n\nVisual Specifications: ${styleModifiers}`;
@@ -243,8 +280,6 @@ export const generateImage = async (
 };
 
 export const generateVideo = async (prompt: string, imageBase64: string, settings: MediaSettings, apiKey?: string) => {
-    // Videos usually take longer, we might want different retry logic or just standard handling.
-    // Given the polling nature, the retry is less about 429 and more about initiation.
     const ai = getAI(apiKey);
     const cleanBase64 = imageBase64.split(',')[1];
     const mimeType = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';

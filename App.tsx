@@ -11,7 +11,8 @@ import { StepResult } from './components/StepResult';
 import { generateStory, generateSpeech, generateImage, generateVideo } from './services/geminiService';
 import { Sparkles, Globe, Download, Save, Upload, Image as ImageIcon, Video, Music, Settings, X, Mic, Plus, Camera, Palette, Sun, User, LayoutTemplate, AlertCircle } from 'lucide-react';
 
-const INITIAL_CONFIG: StoryConfig = {
+// Factory functions to ensure fresh state
+const getInitialConfig = (): StoryConfig => ({
   language: 'ar',
   category: '',
   title: '',
@@ -24,27 +25,27 @@ const INITIAL_CONFIG: StoryConfig = {
   supportingCharacters: '',
   sceneCount: 3,
   characterCount: 2,
-};
+});
 
-const INITIAL_VOICE: VoiceConfig = {
+const getInitialVoice = (): VoiceConfig => ({
     voiceType: 'man_soft', tone: 'calm', accent: 'neutral', language: 'ar'
-};
+});
 
-const INITIAL_IMAGE_STYLE: ImageStyleConfig = {
+const getInitialImageStyle = (): ImageStyleConfig => ({
     artStyle: 'Cinematic Realistic',
     cameraAngle: 'Wide Shot',
     lighting: 'Cinematic Volumetric',
     colorGrade: 'Vibrant',
     characterLook: 'Detailed Realistic',
     clothingStyle: 'Modern Casual'
-};
+});
 
-const INITIAL_MEDIA_SETTINGS: MediaSettings = {
+const getInitialMediaSettings = (): MediaSettings => ({
     aspectRatio: '16:9',
     imageModel: 'gemini-2.5-flash-image',
     videoModel: 'veo-3.1-fast-generate-preview',
     videoResolution: '720p'
-};
+});
 
 const App: React.FC = () => {
   // State
@@ -54,11 +55,11 @@ const App: React.FC = () => {
   const [project, setProject] = useState<Project>({
       id: Date.now().toString(),
       createdAt: Date.now(),
-      config: INITIAL_CONFIG,
+      config: getInitialConfig(),
       output: null,
-      mediaSettings: INITIAL_MEDIA_SETTINGS,
-      imageStyle: INITIAL_IMAGE_STYLE,
-      voiceConfig: INITIAL_VOICE,
+      mediaSettings: getInitialMediaSettings(),
+      imageStyle: getInitialImageStyle(),
+      voiceConfig: getInitialVoice(),
       apiKey: ''
   });
   
@@ -67,9 +68,37 @@ const App: React.FC = () => {
   const [loadingScene, setLoadingScene] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Settings State for Custom Inputs
+  const [customImageModel, setCustomImageModel] = useState(false);
+  const [customVideoModel, setCustomVideoModel] = useState(false);
+
   const t = TRANSLATIONS[lang];
 
   // Logic
+  const goHome = () => {
+    // Only confirm if we have output, otherwise just go home immediately
+    if (project.output && !window.confirm(t.confirmDelete)) {
+        return;
+    }
+    
+    // Explicitly reset all loading and error states
+    setLoading(false);
+    setLoadingScene(null);
+    setError(null);
+    setCurrentTab('script');
+
+    setProject(prev => ({
+        id: Date.now().toString(),
+        createdAt: Date.now(),
+        config: getInitialConfig(),
+        output: null,
+        mediaSettings: getInitialMediaSettings(),
+        imageStyle: getInitialImageStyle(),
+        voiceConfig: getInitialVoice(),
+        apiKey: prev.apiKey // Preserve API key
+    }));
+  };
+
   const applyTemplate = (template: Template) => {
     setProject(p => ({
       ...p,
@@ -236,7 +265,7 @@ const App: React.FC = () => {
               const loaded = JSON.parse(event.target?.result as string);
               setProject({
                   ...loaded,
-                  imageStyle: { ...INITIAL_IMAGE_STYLE, ...(loaded.imageStyle || {}) }
+                  imageStyle: { ...getInitialImageStyle(), ...(loaded.imageStyle || {}) }
               });
               setLang(loaded.config.language || 'ar');
           } catch (err) {
@@ -310,27 +339,67 @@ const App: React.FC = () => {
                           <p className="text-xs text-slate-500 mt-2">Required for Veo and Imagen. Overrides default.</p>
                       </div>
 
-                      {/* Model Customization Section */}
+                      {/* Image Model Customization */}
                       <div>
-                          <label className="block text-sm text-slate-400 mb-2 font-semibold">Custom Image Model ID</label>
-                          <input 
-                            type="text"
-                            value={project.mediaSettings.imageModel}
-                            onChange={(e) => handleMediaSettingsUpdate({imageModel: e.target.value})}
-                            placeholder={t.customModelPlaceholder}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none text-sm font-mono"
-                          />
+                          <label className="block text-sm text-slate-400 mb-2 font-semibold">Image Generation Model</label>
+                          <select 
+                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none text-sm mb-2"
+                             value={customImageModel ? 'custom' : project.mediaSettings.imageModel}
+                             onChange={(e) => {
+                                 if (e.target.value === 'custom') {
+                                     setCustomImageModel(true);
+                                 } else {
+                                     setCustomImageModel(false);
+                                     handleMediaSettingsUpdate({ imageModel: e.target.value });
+                                 }
+                             }}
+                          >
+                             <option value="gemini-2.5-flash-image">{t.model_fast}</option>
+                             <option value="imagen-3.0-generate-001">{t.artistic}</option>
+                             <option value="gemini-3-pro-image-preview">{t.pro}</option>
+                             <option value="custom">Use Custom Model ID...</option>
+                          </select>
+                          
+                          {customImageModel && (
+                              <input 
+                                type="text"
+                                value={project.mediaSettings.imageModel}
+                                onChange={(e) => handleMediaSettingsUpdate({imageModel: e.target.value})}
+                                placeholder="Enter Custom Image Model ID (e.g., gemini-experimental)"
+                                className="w-full bg-slate-800 border border-primary/50 rounded-xl px-4 py-2 text-white outline-none text-sm font-mono animate-fadeIn"
+                              />
+                          )}
                       </div>
 
+                      {/* Video Model Customization */}
                       <div>
-                          <label className="block text-sm text-slate-400 mb-2 font-semibold">Custom Video Model ID</label>
-                          <input 
-                            type="text"
-                            value={project.mediaSettings.videoModel}
-                            onChange={(e) => handleMediaSettingsUpdate({videoModel: e.target.value})}
-                            placeholder="e.g. veo-3.1-generate-preview"
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none text-sm font-mono"
-                          />
+                          <label className="block text-sm text-slate-400 mb-2 font-semibold">Video Generation Model</label>
+                          <select 
+                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none text-sm mb-2"
+                             value={customVideoModel ? 'custom' : project.mediaSettings.videoModel}
+                             onChange={(e) => {
+                                 if (e.target.value === 'custom') {
+                                     setCustomVideoModel(true);
+                                 } else {
+                                     setCustomVideoModel(false);
+                                     handleMediaSettingsUpdate({ videoModel: e.target.value });
+                                 }
+                             }}
+                          >
+                             <option value="veo-3.1-fast-generate-preview">{t.model_fast}</option>
+                             <option value="veo-3.1-generate-preview">{t.quality}</option>
+                             <option value="custom">Use Custom Model ID...</option>
+                          </select>
+
+                          {customVideoModel && (
+                              <input 
+                                type="text"
+                                value={project.mediaSettings.videoModel}
+                                onChange={(e) => handleMediaSettingsUpdate({videoModel: e.target.value})}
+                                placeholder="Enter Custom Video Model ID"
+                                className="w-full bg-slate-800 border border-primary/50 rounded-xl px-4 py-2 text-white outline-none text-sm font-mono animate-fadeIn"
+                              />
+                          )}
                       </div>
                       
                       <button 
@@ -384,26 +453,27 @@ const App: React.FC = () => {
       {/* Top Bar */}
       <header className="border-b border-slate-800 bg-surface/50 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-xl">
+          <div 
+             onClick={goHome}
+             className="flex items-center gap-2 font-bold text-xl cursor-pointer hover:opacity-80 transition-opacity"
+             title="Go Home"
+          >
              <Sparkles className="text-primary" />
              <span className="hidden sm:inline">{t.appTitle}</span>
           </div>
           
           <div className="flex gap-2">
-            <button onClick={() => setShowTemplates(true)} className="btn-secondary bg-primary/10 border-primary/20 hover:bg-primary/20 text-primary">
-                <LayoutTemplate size={18} /> <span className="hidden sm:inline">{t.templates}</span>
-            </button>
             <button onClick={() => setShowSettings(true)} className="btn-icon text-accent border-accent/50 hover:bg-accent/10">
                 <Settings size={18} />
             </button>
             <button onClick={() => setLang(l => l === 'ar' ? 'en' : 'ar')} className="btn-icon">
                 <Globe size={18} /> {lang.toUpperCase()}
             </button>
-            <button onClick={saveProject} className="btn-secondary hidden md:flex">
-                <Save size={18} /> {t.saveProject}
+            <button onClick={saveProject} className="btn-secondary flex">
+                <Save size={18} /> <span className="hidden sm:inline">{t.saveProject}</span>
             </button>
-            <label className="btn-secondary hidden md:flex cursor-pointer">
-                <Upload size={18} /> {t.loadProject}
+            <label className="btn-secondary flex cursor-pointer">
+                <Upload size={18} /> <span className="hidden sm:inline">{t.loadProject}</span>
                 <input type="file" accept=".json" onChange={loadProject} className="hidden" />
             </label>
           </div>
@@ -455,7 +525,9 @@ const App: React.FC = () => {
                                 <StepConfig 
                                     lang={lang} 
                                     config={project.config} 
+                                    voiceConfig={project.voiceConfig}
                                     onUpdate={handleConfigUpdate} 
+                                    onVoiceUpdate={handleVoiceUpdate}
                                     onGenerate={generateScript} 
                                 />
                             )}
@@ -481,7 +553,7 @@ const App: React.FC = () => {
         {currentTab === 'audio' && (
             <div className="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto">
                  {/* Audio Settings Sidebar */}
-                 <div className="md:w-72 flex-shrink-0">
+                 <div className="w-full md:w-72 flex-shrink-0">
                     <div className="bg-surface p-6 rounded-2xl sticky top-24 border border-slate-700">
                         <div className="flex items-center gap-2 mb-6 text-accent">
                             <Mic size={20} />
@@ -567,7 +639,7 @@ const App: React.FC = () => {
         {currentTab === 'visuals' && (
              <div className="flex flex-col md:flex-row gap-6 max-w-7xl mx-auto">
                 {/* Visual Settings Sidebar */}
-                <div className="md:w-72 flex-shrink-0">
+                <div className="w-full md:w-72 flex-shrink-0">
                     <div className="bg-surface p-6 rounded-2xl sticky top-24 border border-slate-700 h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
                         <h3 className="font-bold mb-6 flex items-center gap-2 text-white"><ImageIcon size={18}/> {t.visualStyle}</h3>
                         
@@ -606,7 +678,7 @@ const App: React.FC = () => {
                         </div>
 
                         {/* Technical Settings */}
-                        <h3 className="font-bold mb-4 flex items-center gap-2 text-white text-sm"><Settings size={14}/> Technical</h3>
+                        <h3 className="font-bold mb-4 flex items-center gap-2 text-white text-sm"><Settings size={14}/> {t.technical}</h3>
 
                         <div className="mb-6">
                             <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">{t.aspectRatio}</label>
@@ -625,14 +697,18 @@ const App: React.FC = () => {
 
                         <div className="mb-6">
                             <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">{t.modelQuality}</label>
+                            {/* Added conditional to show custom values */}
                             <select 
                                 value={project.mediaSettings.imageModel}
                                 onChange={(e) => handleMediaSettingsUpdate({ imageModel: e.target.value })}
                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:border-primary outline-none"
                             >
-                                <option value="gemini-2.5-flash-image">{t.fast}</option>
+                                <option value="gemini-2.5-flash-image">{t.model_fast}</option>
                                 <option value="imagen-3.0-generate-001">{t.artistic}</option>
                                 <option value="gemini-3-pro-image-preview">{t.pro}</option>
+                                {!['gemini-2.5-flash-image', 'imagen-3.0-generate-001', 'gemini-3-pro-image-preview'].includes(project.mediaSettings.imageModel) && (
+                                    <option value={project.mediaSettings.imageModel}>Custom: {project.mediaSettings.imageModel}</option>
+                                )}
                             </select>
                             
                             <label className="block text-xs font-semibold text-slate-400 mt-4 mb-2 uppercase tracking-wide">Video Model</label>
@@ -641,8 +717,11 @@ const App: React.FC = () => {
                                 onChange={(e) => handleMediaSettingsUpdate({ videoModel: e.target.value })}
                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:border-primary outline-none"
                             >
-                                <option value="veo-3.1-fast-generate-preview">{t.fast}</option>
+                                <option value="veo-3.1-fast-generate-preview">{t.model_fast}</option>
                                 <option value="veo-3.1-generate-preview">{t.quality}</option>
+                                 {!['veo-3.1-fast-generate-preview', 'veo-3.1-generate-preview'].includes(project.mediaSettings.videoModel) && (
+                                    <option value={project.mediaSettings.videoModel}>Custom: {project.mediaSettings.videoModel}</option>
+                                )}
                             </select>
                         </div>
                     </div>

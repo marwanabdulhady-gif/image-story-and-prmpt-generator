@@ -1,3 +1,5 @@
+
+
 export type Language = 'ar' | 'en' | 'fr' | 'es' | 'de';
 
 export interface VoiceConfig {
@@ -168,7 +170,7 @@ export const TRANSLATIONS = {
     customModelPlaceholder: 'اسم النموذج المخصص (مثال: gemini-experimental)',
     aspectRatio: 'أبعاد الصورة',
     modelQuality: 'نموذج التوليد',
-    fast: 'سريع (Flash/Nano)',
+    model_fast: 'سريع (Flash/Nano)',
     pro: 'احترافي (Pro)',
     artistic: 'فني (Imagen 3)',
     quality: 'جودة عالية (Veo)',
@@ -194,6 +196,7 @@ export const TRANSLATIONS = {
     useTemplate: 'استخدم القالب',
     // New Scenario Fields
     storyCore: 'أساس القصة',
+    styleAndVoice: 'النمط والصوت',
     characters: 'الشخصيات',
     world: 'العالم والأجواء',
     premise: 'المقدمة / الحبكة',
@@ -205,6 +208,10 @@ export const TRANSLATIONS = {
     supporting: 'شخصيات ثانوية',
     numScenes: 'عدد المشاهد',
     numCharacters: 'عدد الشخصيات',
+    magicFill: 'تعبئة سحرية ✨',
+    thinking: 'جاري التفكير...',
+    dialectDesc: 'اختر اللهجة المستخدمة في سرد القصة.',
+    toneDesc: 'يحدد النغمة العاطفية للكتابة.',
     // Visual Styles
     visualStyle: 'النمط البصري',
     artStyle: 'النمط الفني',
@@ -213,6 +220,14 @@ export const TRANSLATIONS = {
     colorGrade: 'الألوان',
     characterLook: 'مظهر الشخصية',
     clothingStyle: 'الملابس',
+    technical: 'إعدادات تقنية',
+    // Chips & Options
+    slow: 'بطيء',
+    balanced: 'متوازن',
+    fast: 'سريع',
+    none: 'لا يوجد',
+    mild: 'خفيف',
+    shocking: 'صادم',
     // Voice Options
     man_deep: 'رجل (عميق)',
     man_soft: 'رجل (هادئ)',
@@ -235,7 +250,14 @@ export const TRANSLATIONS = {
     ar: 'العربية',
     fr: 'الفرنسية',
     es: 'الإسبانية',
-    de: 'الألمانية'
+    de: 'الألمانية',
+    // Steps
+    copied: 'تم النسخ',
+    copy: 'نسخ',
+    imagePrompt: 'وصف الصورة',
+    motionPrompt: 'وصف الحركة',
+    loadingTitle: 'جاري تأليف القصة',
+    loadingSubtitle: 'يقوم الذكاء الاصطناعي الآن ببناء العالم والشخصيات...'
   },
   en: {
     appTitle: 'Story Studio',
@@ -254,7 +276,7 @@ export const TRANSLATIONS = {
     customModelPlaceholder: 'Custom Model ID (e.g. gemini-experimental)',
     aspectRatio: 'Aspect Ratio',
     modelQuality: 'Generation Model',
-    fast: 'Fast (Flash/Nano)',
+    model_fast: 'Fast (Flash/Nano)',
     pro: 'Professional (Pro)',
     artistic: 'Artistic (Imagen 3)',
     quality: 'High Quality (Veo)',
@@ -280,6 +302,7 @@ export const TRANSLATIONS = {
     useTemplate: 'Use Template',
     // New Scenario Fields
     storyCore: 'Story Core',
+    styleAndVoice: 'Style & Voice',
     characters: 'Characters',
     world: 'World & Vibe',
     premise: 'Premise / Plot',
@@ -291,6 +314,10 @@ export const TRANSLATIONS = {
     supporting: 'Supporting Cast',
     numScenes: 'Number of Scenes',
     numCharacters: 'Number of Characters',
+    magicFill: 'Magic Fill ✨',
+    thinking: 'Thinking...',
+    dialectDesc: 'Choose the dialect for the narration text generation.',
+    toneDesc: 'Sets the emotional tone of the story writing.',
     // Visual Styles
     visualStyle: 'Visual Style',
     artStyle: 'Art Style',
@@ -299,6 +326,14 @@ export const TRANSLATIONS = {
     colorGrade: 'Color Grading',
     characterLook: 'Character Look',
     clothingStyle: 'Clothes',
+    technical: 'Technical Settings',
+    // Chips & Options
+    slow: 'Slow',
+    balanced: 'Balanced',
+    fast: 'Fast',
+    none: 'None',
+    mild: 'Mild',
+    shocking: 'Shocking',
     // Voice Options
     man_deep: 'Man (Deep)',
     man_soft: 'Man (Soft)',
@@ -321,6 +356,13 @@ export const TRANSLATIONS = {
     ar: 'Arabic',
     fr: 'French',
     es: 'Spanish',
-    de: 'German'
+    de: 'German',
+    // Steps
+    copied: 'Copied',
+    copy: 'Copy',
+    imagePrompt: 'Image Prompt',
+    motionPrompt: 'Motion Prompt',
+    loadingTitle: 'Writing Your Story',
+    loadingSubtitle: 'AI is constructing the world and characters...'
   }
 };
