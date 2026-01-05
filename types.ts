@@ -1,0 +1,326 @@
+export type Language = 'ar' | 'en' | 'fr' | 'es' | 'de';
+
+export interface VoiceConfig {
+  voiceType: 'man_deep' | 'man_soft' | 'man_drama' | 'woman' | 'child';
+  tone: 'enthusiastic' | 'sad' | 'calm' | 'mysterious' | 'dramatic';
+  accent: 'fusha' | 'egyptian' | 'khaleeji' | 'shami' | 'maghrebi' | 'neutral';
+  language: Language;
+}
+
+export interface StoryConfig {
+  language: Language;
+  category: string;
+  // Enhanced Story Fields
+  title: string;
+  premise: string;
+  setting: string;
+  pacing: 'slow' | 'balanced' | 'fast';
+  plotTwist: 'none' | 'mild' | 'shocking';
+  // Enhanced Character Fields
+  protagonist: string;
+  antagonist: string;
+  supportingCharacters: string;
+  characterCount: number;
+  sceneCount: number;
+}
+
+export interface ImageStyleConfig {
+  artStyle: string;
+  cameraAngle: string;
+  lighting: string;
+  colorGrade: string;
+  characterLook: string;
+  clothingStyle: string;
+}
+
+export interface Scene {
+  sceneNumber: number;
+  narrative: string;
+  imagePrompt: string;
+  motionPrompt: string;
+  // Generated Media
+  audioData?: string; // Base64 WAV
+  imageUrl?: string;
+  videoUrl?: string;
+}
+
+export interface StoryOutput {
+  title: string;
+  summary: string;
+  scenes: Scene[];
+}
+
+export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
+
+export type ImageModel = 
+  | 'gemini-2.5-flash-image' 
+  | 'gemini-3-pro-image-preview' 
+  | 'imagen-3.0-generate-001'
+  | string;
+
+export type VideoModel = 
+  | 'veo-3.1-fast-generate-preview' 
+  | 'veo-3.1-generate-preview'
+  | string;
+
+export interface MediaSettings {
+  aspectRatio: AspectRatio;
+  imageModel: ImageModel;
+  videoModel: VideoModel;
+  videoResolution: '720p' | '1080p';
+}
+
+export interface Project {
+  id: string;
+  createdAt: number;
+  config: StoryConfig;
+  output: StoryOutput | null;
+  mediaSettings: MediaSettings;
+  imageStyle: ImageStyleConfig; // Added this
+  voiceConfig: VoiceConfig;
+  apiKey?: string;
+}
+
+export interface Template {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  config: Partial<StoryConfig>;
+  imageStyle: Partial<ImageStyleConfig>;
+  voiceConfig: Partial<VoiceConfig>;
+}
+
+export const CATEGORIES = [
+  { id: 'horror', label: { en: 'Horror & Thriller', ar: 'رعب و إثارة' }, icon: '👻' },
+  { id: 'history', label: { en: 'Historical', ar: 'تاريخي' }, icon: '🏛️' },
+  { id: 'fantasy', label: { en: 'Fantasy & Magic', ar: 'خيال و سحر' }, icon: '✨' },
+  { id: 'adventure', label: { en: 'Adventure', ar: 'مغامرة' }, icon: '🧭' },
+  { id: 'scifi', label: { en: 'Sci-Fi & Cyberpunk', ar: 'خيال علمي' }, icon: '🦾' },
+  { id: 'mythology', label: { en: 'Mythology', ar: 'أساطير' }, icon: '🐉' },
+  { id: 'kids', label: { en: 'Kids', ar: 'أطفال' }, icon: '🧸' },
+  { id: 'mystery', label: { en: 'Mystery', ar: 'غموض' }, icon: '🕵️' },
+];
+
+export const TEMPLATES: Template[] = [
+  {
+    id: 'cinematic_horror',
+    label: 'Cinematic Horror',
+    description: 'Dark, moody atmosphere with high contrast lighting.',
+    icon: '👻',
+    config: { category: 'horror', pacing: 'slow', plotTwist: 'shocking' },
+    imageStyle: { artStyle: 'Cinematic Realistic', lighting: 'Dark & Moody', colorGrade: 'Desaturated' },
+    voiceConfig: { voiceType: 'man_deep', tone: 'mysterious' }
+  },
+  {
+    id: 'pixar_adventure',
+    label: '3D Animation',
+    description: 'Vibrant, colorful 3D style suitable for all ages.',
+    icon: '🎈',
+    config: { category: 'kids', pacing: 'fast', plotTwist: 'mild' },
+    imageStyle: { artStyle: '3D Render (Pixar)', lighting: 'Studio Lighting', colorGrade: 'Vibrant' },
+    voiceConfig: { voiceType: 'child', tone: 'enthusiastic' }
+  },
+  {
+    id: 'cyberpunk',
+    label: 'Cyberpunk',
+    description: 'Neon lights, futuristic tech, and gritty characters.',
+    icon: '🦾',
+    config: { category: 'scifi', pacing: 'fast', plotTwist: 'mild' },
+    imageStyle: { artStyle: 'Cyberpunk', lighting: 'Neon Lights', colorGrade: 'Cool Tone', clothingStyle: 'Sci-Fi Armor' },
+    voiceConfig: { voiceType: 'woman', tone: 'calm' }
+  },
+  {
+    id: 'historical_epic',
+    label: 'Historical Epic',
+    description: 'Grand scales, natural lighting, and period accuracy.',
+    icon: '🏛️',
+    config: { category: 'history', pacing: 'balanced', plotTwist: 'none' },
+    imageStyle: { artStyle: 'Oil Painting', lighting: 'Golden Hour', colorGrade: 'Warm Tone', clothingStyle: 'Victorian' },
+    voiceConfig: { voiceType: 'man_drama', tone: 'dramatic' }
+  }
+];
+
+export const STYLE_OPTIONS = {
+  artStyle: ['Cinematic Realistic', 'Anime', '3D Render (Pixar)', 'Oil Painting', 'Cyberpunk', 'Film Noir', 'Watercolors', 'Sketch'],
+  cameraAngle: ['Wide Shot', 'Close-up', 'Drone View', 'Low Angle (Heroic)', 'Dutch Angle (Uneasy)', 'Over the Shoulder'],
+  lighting: ['Golden Hour', 'Cinematic Volumetric', 'Neon Lights', 'Dark & Moody', 'Studio Lighting', 'Natural Daylight'],
+  colorGrade: ['Vibrant', 'Desaturated', 'Warm Tone', 'Cool Tone', 'Black & White', 'Pastel'],
+  characterLook: ['Detailed Realistic', 'Stylized', 'Rugged', 'Ethereal', 'Cybernetic'],
+  clothingStyle: ['Modern Casual', 'Sci-Fi Armor', 'Victorian', 'Fantasy Robes', 'Tactical Gear', 'Streetwear']
+};
+
+export const TRANSLATIONS = {
+  ar: {
+    appTitle: 'استوديو القصص',
+    timeline_script: 'السيناريو',
+    timeline_audio: 'الصوت',
+    timeline_visuals: 'المرئيات',
+    saveProject: 'حفظ المشروع',
+    loadProject: 'تحميل مشروع',
+    downloadMp3: 'تحميل MP3',
+    generateImage: 'توليد صورة',
+    generateVideo: 'توليد فيديو',
+    uploadImage: 'رفع صورة',
+    settings: 'الإعدادات',
+    apiSettings: 'إعدادات API والنماذج',
+    apiKeyPlaceholder: 'أدخل مفتاح Gemini API الخاص بك...',
+    customModelPlaceholder: 'اسم النموذج المخصص (مثال: gemini-experimental)',
+    aspectRatio: 'أبعاد الصورة',
+    modelQuality: 'نموذج التوليد',
+    fast: 'سريع (Flash/Nano)',
+    pro: 'احترافي (Pro)',
+    artistic: 'فني (Imagen 3)',
+    quality: 'جودة عالية (Veo)',
+    resolution: 'الدقة',
+    platform_youtube: 'يوتيوب (16:9)',
+    platform_tiktok: 'تيك توك (9:16)',
+    platform_insta: 'انستقرام (1:1)',
+    back: 'رجوع',
+    generate: 'تشغيل القصة',
+    chooseCategory: 'اختر نوع القصة',
+    yourIdea: 'فكرة القصة',
+    yourIdeaPlaceholder: 'اكتب الفكرة الأساسية...',
+    voiceSettings: 'إعدادات الصوت',
+    generating: 'جاري التوليد...',
+    noScript: 'لم يتم إنشاء قصة بعد. ابدأ من تبويب السيناريو.',
+    confirmDelete: 'هل أنت متأكد؟ سيفقد العمل غير المحفوظ.',
+    downloadProject: 'تنزيل ملف المشروع',
+    voiceType: 'نوع الصوت',
+    tone: 'نبرة الصوت',
+    accent: 'اللهجة',
+    orCustom: 'أو اكتب اسم نموذج مخصص',
+    templates: 'القوالب الجاهزة',
+    useTemplate: 'استخدم القالب',
+    // New Scenario Fields
+    storyCore: 'أساس القصة',
+    characters: 'الشخصيات',
+    world: 'العالم والأجواء',
+    premise: 'المقدمة / الحبكة',
+    setting: 'الزمان والمكان',
+    pacing: 'إيقاع القصة',
+    plotTwist: 'مستوى المفاجأة',
+    protagonist: 'البطل',
+    antagonist: 'الشرير / العقبة',
+    supporting: 'شخصيات ثانوية',
+    numScenes: 'عدد المشاهد',
+    numCharacters: 'عدد الشخصيات',
+    // Visual Styles
+    visualStyle: 'النمط البصري',
+    artStyle: 'النمط الفني',
+    cameraAngle: 'زاوية الكاميرا',
+    lighting: 'الإضاءة',
+    colorGrade: 'الألوان',
+    characterLook: 'مظهر الشخصية',
+    clothingStyle: 'الملابس',
+    // Voice Options
+    man_deep: 'رجل (عميق)',
+    man_soft: 'رجل (هادئ)',
+    man_drama: 'رجل (درامي)',
+    woman: 'امرأة',
+    child: 'طفل',
+    enthusiastic: 'حماسي',
+    sad: 'حزين',
+    calm: 'هادئ',
+    mysterious: 'غامض',
+    dramatic: 'درامي',
+    fusha: 'فصحى',
+    egyptian: 'مصري عامي',
+    khaleeji: 'خليجي',
+    shami: 'شامي',
+    maghrebi: 'مغربي',
+    neutral: 'محايد',
+    language: 'اللغة',
+    en: 'الإنجليزية',
+    ar: 'العربية',
+    fr: 'الفرنسية',
+    es: 'الإسبانية',
+    de: 'الألمانية'
+  },
+  en: {
+    appTitle: 'Story Studio',
+    timeline_script: 'Script',
+    timeline_audio: 'Audio',
+    timeline_visuals: 'Visuals',
+    saveProject: 'Save Project',
+    loadProject: 'Load Project',
+    downloadMp3: 'Download MP3',
+    generateImage: 'Generate Image',
+    generateVideo: 'Generate Video',
+    uploadImage: 'Upload Image',
+    settings: 'Settings',
+    apiSettings: 'API & Model Settings',
+    apiKeyPlaceholder: 'Enter your custom Gemini API Key...',
+    customModelPlaceholder: 'Custom Model ID (e.g. gemini-experimental)',
+    aspectRatio: 'Aspect Ratio',
+    modelQuality: 'Generation Model',
+    fast: 'Fast (Flash/Nano)',
+    pro: 'Professional (Pro)',
+    artistic: 'Artistic (Imagen 3)',
+    quality: 'High Quality (Veo)',
+    resolution: 'Resolution',
+    platform_youtube: 'YouTube (16:9)',
+    platform_tiktok: 'TikTok/Reels (9:16)',
+    platform_insta: 'Square (1:1)',
+    back: 'Back',
+    generate: 'Generate Story',
+    chooseCategory: 'Choose Category',
+    yourIdea: 'Story Concept',
+    yourIdeaPlaceholder: 'The core concept...',
+    voiceSettings: 'Voice Settings',
+    generating: 'Generating...',
+    noScript: 'No story generated yet. Start at the Script tab.',
+    confirmDelete: 'Are you sure? Unsaved work will be lost.',
+    downloadProject: 'Download Project File',
+    voiceType: 'Voice Type',
+    tone: 'Tone',
+    accent: 'Accent',
+    orCustom: 'Or type custom model ID',
+    templates: 'Templates',
+    useTemplate: 'Use Template',
+    // New Scenario Fields
+    storyCore: 'Story Core',
+    characters: 'Characters',
+    world: 'World & Vibe',
+    premise: 'Premise / Plot',
+    setting: 'Setting (Time/Place)',
+    pacing: 'Pacing',
+    plotTwist: 'Plot Twist Level',
+    protagonist: 'Protagonist',
+    antagonist: 'Antagonist',
+    supporting: 'Supporting Cast',
+    numScenes: 'Number of Scenes',
+    numCharacters: 'Number of Characters',
+    // Visual Styles
+    visualStyle: 'Visual Style',
+    artStyle: 'Art Style',
+    cameraAngle: 'Camera Angle',
+    lighting: 'Lighting',
+    colorGrade: 'Color Grading',
+    characterLook: 'Character Look',
+    clothingStyle: 'Clothes',
+    // Voice Options
+    man_deep: 'Man (Deep)',
+    man_soft: 'Man (Soft)',
+    man_drama: 'Man (Dramatic)',
+    woman: 'Woman',
+    child: 'Child',
+    enthusiastic: 'Enthusiastic',
+    sad: 'Sad',
+    calm: 'Calm',
+    mysterious: 'Mysterious',
+    dramatic: 'Dramatic',
+    fusha: 'Modern Standard (Fusha)',
+    egyptian: 'Egyptian',
+    khaleeji: 'Khaleeji',
+    shami: 'Levantine (Shami)',
+    maghrebi: 'Maghrebi',
+    neutral: 'Neutral',
+    language: 'Language',
+    en: 'English',
+    ar: 'Arabic',
+    fr: 'French',
+    es: 'Spanish',
+    de: 'German'
+  }
+};
