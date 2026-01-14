@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { StoryConfig, TRANSLATIONS, Language, VoiceConfig } from '../types';
+import { StoryConfig, TRANSLATIONS, Language, VoiceConfig, Character } from '../types';
 import { Button } from './Button';
-import { Sparkles, Users, Globe, BookOpen, Clock, Zap, Wand2, Mic, Volume2 } from 'lucide-react';
-import { generateStoryIdeas } from '../services/geminiService';
+import { Sparkles, Users, Globe, BookOpen, Clock, Zap, Wand2, Mic, Volume2, Plus, Trash2, Camera, User, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import { generateStoryIdeas, generateCharacterProfiles, analyzeImage } from '../services/geminiService';
 
 interface Props {
   config: StoryConfig;
@@ -17,7 +17,10 @@ export const StepConfig: React.FC<Props> = ({ config, voiceConfig, onUpdate, onV
   const t = TRANSLATIONS[lang];
   const [section, setSection] = useState<'core' | 'style' | 'characters' | 'world'>('core');
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [generatingChars, setGeneratingChars] = useState(false);
+  const [analyzingImgId, setAnalyzingImgId] = useState<string | null>(null);
 
+  // --- Core Helpers ---
   const handleSuggest = async () => {
       setIsSuggesting(true);
       try {
@@ -29,6 +32,69 @@ export const StepConfig: React.FC<Props> = ({ config, voiceConfig, onUpdate, onV
       } finally {
           setIsSuggesting(false);
       }
+  };
+
+  // --- Character Helpers ---
+  const addCharacter = () => {
+      const newChar: Character = {
+          id: Date.now().toString(),
+          name: '',
+          role: 'supporting',
+          description: '',
+      };
+      onUpdate({ characters: [...config.characters, newChar] });
+  };
+
+  const updateCharacter = (id: string, updates: Partial<Character>) => {
+      const newChars = config.characters.map(c => c.id === id ? { ...c, ...updates } : c);
+      onUpdate({ characters: newChars });
+  };
+
+  const removeCharacter = (id: string) => {
+      const newChars = config.characters.filter(c => c.id !== id);
+      onUpdate({ characters: newChars });
+  };
+
+  const handleAutoGenerateCharacters = async () => {
+      if (!config.premise) {
+          alert("Please enter a Story Core / Premise first.");
+          return;
+      }
+      setGeneratingChars(true);
+      try {
+          const chars = await generateCharacterProfiles(config.premise, config.setting, config.characterCount, lang);
+          onUpdate({ characters: chars });
+      } catch (e) {
+          console.error(e);
+          alert("Failed to generate characters.");
+      } finally {
+          setGeneratingChars(false);
+      }
+  };
+
+  const handleCharacterImageUpload = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+          const base64 = ev.target?.result as string;
+          // Set image immediately
+          updateCharacter(id, { image: base64 });
+          
+          // Trigger analysis
+          setAnalyzingImgId(id);
+          try {
+              const description = await analyzeImage(base64, lang);
+              updateCharacter(id, { description });
+          } catch (err) {
+              console.error(err);
+              alert("Could not analyze image. Please fill description manually.");
+          } finally {
+              setAnalyzingImgId(null);
+          }
+      };
+      reader.readAsDataURL(file);
   };
 
   const SectionButton = ({ id, label, icon: Icon }: any) => (
@@ -69,14 +135,16 @@ export const StepConfig: React.FC<Props> = ({ config, voiceConfig, onUpdate, onV
             <SectionButton id="world" label={t.world} icon={Globe} />
         </div>
         
-        <button 
-            onClick={handleSuggest}
-            disabled={isSuggesting}
-            className="flex-shrink-0 ml-4 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent to-pink-600 rounded-lg text-white text-sm font-bold shadow-lg hover:shadow-accent/20 transition-all disabled:opacity-50"
-        >
-            {isSuggesting ? <Wand2 className="animate-spin" size={16}/> : <Wand2 size={16}/>}
-            {isSuggesting ? t.thinking : t.magicFill}
-        </button>
+        {section === 'core' && (
+            <button 
+                onClick={handleSuggest}
+                disabled={isSuggesting}
+                className="flex-shrink-0 ml-4 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent to-pink-600 rounded-lg text-white text-sm font-bold shadow-lg hover:shadow-accent/20 transition-all disabled:opacity-50"
+            >
+                {isSuggesting ? <Wand2 className="animate-spin" size={16}/> : <Wand2 size={16}/>}
+                {isSuggesting ? t.thinking : t.magicFill}
+            </button>
+        )}
       </div>
 
       <div className="bg-surface/50 border border-slate-700/50 rounded-3xl p-8 backdrop-blur-sm min-h-[400px]">
@@ -139,7 +207,7 @@ export const StepConfig: React.FC<Props> = ({ config, voiceConfig, onUpdate, onV
           </div>
         )}
 
-        {/* --- STYLE & VOICE SECTION (New) --- */}
+        {/* --- STYLE & VOICE SECTION --- */}
         {section === 'style' && (
              <div className="space-y-8 animate-fadeIn">
                  <div>
@@ -178,51 +246,115 @@ export const StepConfig: React.FC<Props> = ({ config, voiceConfig, onUpdate, onV
              </div>
         )}
 
-        {/* --- CHARACTERS SECTION --- */}
+        {/* --- CHARACTERS SECTION (REBUILT) --- */}
         {section === 'characters' && (
            <div className="space-y-6 animate-fadeIn">
-              <div>
-                 <div className="flex justify-between mb-2">
-                    <label className="text-slate-300 font-semibold flex items-center gap-2"><Users size={16}/> {t.numCharacters}</label>
-                    <span className="text-primary font-bold bg-primary/10 px-2 py-0.5 rounded">{config.characterCount}</span>
-                </div>
-                <input 
-                    type="range" min="1" max="5" step="1"
-                    value={config.characterCount}
-                    onChange={(e) => onUpdate({ characterCount: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-            </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                      <label className="block text-primary font-bold mb-2">{t.protagonist}</label>
-                      <textarea 
-                          value={config.protagonist}
-                          onChange={(e) => onUpdate({ protagonist: e.target.value })}
-                          placeholder={t.protagonist + "..."}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm h-32 resize-none focus:border-primary"
+              <div className="flex justify-between items-center bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                  <div className="flex items-center gap-3">
+                      <span className="text-sm text-slate-300">{t.numCharacters}: {config.characterCount}</span>
+                      <input 
+                          type="range" min="1" max="5" step="1"
+                          value={config.characterCount}
+                          onChange={(e) => onUpdate({ characterCount: parseInt(e.target.value) })}
+                          className="w-24 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
                       />
                   </div>
-                  <div>
-                      <label className="block text-accent font-bold mb-2">{t.antagonist}</label>
-                      <textarea 
-                          value={config.antagonist}
-                          onChange={(e) => onUpdate({ antagonist: e.target.value })}
-                          placeholder={t.antagonist + "..."}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm h-32 resize-none focus:border-accent"
-                      />
-                  </div>
+                  <button 
+                      onClick={handleAutoGenerateCharacters}
+                      disabled={generatingChars}
+                      className="px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                      {generatingChars ? <Wand2 className="animate-spin" size={14}/> : <Sparkles size={14}/>}
+                      {t.autoGenCharacters}
+                  </button>
               </div>
-              <div>
-                  <label className="block text-slate-300 font-semibold mb-2">{t.supporting}</label>
-                  <input 
-                      type="text"
-                      value={config.supportingCharacters}
-                      onChange={(e) => onUpdate({ supportingCharacters: e.target.value })}
-                      placeholder={t.supporting + "..."}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:border-primary outline-none"
-                  />
+
+              <div className="grid grid-cols-1 gap-4 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar">
+                  {config.characters.map((char, index) => (
+                      <div key={char.id} className="bg-slate-900 border border-slate-700 rounded-xl p-4 relative group flex gap-5 hover:border-slate-500 transition-all">
+                          <button 
+                            onClick={() => removeCharacter(char.id)}
+                            className="absolute top-2 right-2 p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded transition-colors z-10"
+                          >
+                              <Trash2 size={16}/>
+                          </button>
+
+                          {/* Left: Card Image */}
+                          <div className="flex-shrink-0 w-32 h-40">
+                              <label className="block w-full h-full bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 hover:border-primary hover:bg-slate-750 transition-all relative overflow-hidden cursor-pointer group/img">
+                                   {char.image ? (
+                                       <>
+                                        <img src={char.image} alt="Ref" className="w-full h-full object-cover opacity-60 group-hover/img:opacity-100 transition-opacity"/>
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover/img:bg-transparent transition-colors">
+                                            {analyzingImgId === char.id ? (
+                                                 <Wand2 className="text-primary animate-spin drop-shadow-lg" size={24}/>
+                                            ) : (
+                                                 <div className="bg-black/60 p-1 rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                                     <Camera className="text-white" size={16}/>
+                                                 </div>
+                                            )}
+                                        </div>
+                                       </>
+                                   ) : (
+                                       <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-2">
+                                            <User size={32}/>
+                                            <span className="text-[10px] uppercase font-bold text-center px-2">Upload Ref</span>
+                                       </div>
+                                   )}
+                                   <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCharacterImageUpload(char.id, e)}/>
+                              </label>
+                          </div>
+
+                          {/* Right: Card Details */}
+                          <div className="flex-1 space-y-3 pt-1">
+                               <div className="flex gap-2 items-start pr-8">
+                                   <div className="flex-1">
+                                      <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">{t.characterName}</label>
+                                      <input 
+                                        type="text" 
+                                        value={char.name}
+                                        onChange={(e) => updateCharacter(char.id, { name: e.target.value })}
+                                        placeholder="Character Name"
+                                        className="w-full bg-slate-800 border-b border-slate-600 pb-1 text-white font-bold text-lg focus:border-primary outline-none focus:bg-slate-800/50"
+                                      />
+                                   </div>
+                                   <div className="w-32">
+                                       <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Role</label>
+                                       <select
+                                            value={char.role}
+                                            onChange={(e) => updateCharacter(char.id, { role: e.target.value as any })}
+                                            className="w-full bg-slate-800 border-b border-slate-600 pb-1 text-xs text-slate-300 focus:border-primary outline-none"
+                                        >
+                                            <option value="protagonist">Protagonist</option>
+                                            <option value="antagonist">Antagonist</option>
+                                            <option value="supporting">Supporting</option>
+                                        </select>
+                                   </div>
+                               </div>
+
+                               <div className="flex-grow">
+                                   <div className="flex justify-between items-center mb-1">
+                                       <label className="text-[10px] text-slate-400 uppercase font-bold">{t.characterDesc}</label>
+                                       {analyzingImgId === char.id && <span className="text-[10px] text-primary flex items-center gap-1"><Wand2 size={10} className="animate-spin"/> Analyzing visual signature...</span>}
+                                       {char.image && !analyzingImgId && char.description && <span className="text-[10px] text-green-400 flex items-center gap-1"><CheckCircle2 size={10}/> Visual Ref Active</span>}
+                                   </div>
+                                   <textarea 
+                                        value={char.description}
+                                        onChange={(e) => updateCharacter(char.id, { description: e.target.value })}
+                                        placeholder="Physical description used for image generation..."
+                                        className={`w-full bg-black/20 border border-slate-700 rounded-lg p-3 text-xs text-slate-300 h-24 resize-none focus:border-primary outline-none transition-opacity ${analyzingImgId === char.id ? 'opacity-50' : ''}`}
+                                    />
+                               </div>
+                          </div>
+                      </div>
+                  ))}
+
+                  <button 
+                    onClick={addCharacter}
+                    className="w-full py-4 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 font-bold bg-slate-900/50"
+                  >
+                      <Plus size={18}/> {t.addCharacter}
+                  </button>
               </div>
            </div>
         )}

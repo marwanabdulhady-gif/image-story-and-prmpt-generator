@@ -1,6 +1,6 @@
 import React from 'react';
 import { StoryOutput, Scene, TRANSLATIONS, Language } from '../types';
-import { Copy, Check, Video, Image as ImageIcon, BookOpen, Quote } from 'lucide-react';
+import { Copy, Check, Video, Image as ImageIcon, BookOpen, Quote, Users } from 'lucide-react';
 
 interface Props {
   data: StoryOutput;
@@ -28,6 +28,13 @@ const SceneCard: React.FC<{ scene: Scene; lang: Language; t: any }> = ({ scene, 
         <span className="bg-slate-800 text-white px-3 py-1 rounded-full text-xs font-bold border border-slate-700">
           Scene {scene.sceneNumber}
         </span>
+        <div className="flex gap-1">
+             {scene.characterNames?.map(name => (
+                 <span key={name} className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-700 rounded-full text-slate-400">
+                    <Users size={10}/> {name}
+                 </span>
+             ))}
+        </div>
       </div>
       
       <div className="mb-4 flex-grow">

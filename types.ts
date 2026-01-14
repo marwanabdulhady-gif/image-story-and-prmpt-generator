@@ -9,6 +9,14 @@ export interface VoiceConfig {
   language: Language;
 }
 
+export interface Character {
+  id: string;
+  name: string;
+  role: 'protagonist' | 'antagonist' | 'supporting';
+  description: string; // The "Visual Signature"
+  image?: string; // Base64 reference image (for UI and analysis)
+}
+
 export interface StoryConfig {
   language: Language;
   category: string;
@@ -19,11 +27,9 @@ export interface StoryConfig {
   pacing: 'slow' | 'balanced' | 'fast';
   plotTwist: 'none' | 'mild' | 'shocking';
   // Enhanced Character Fields
-  protagonist: string;
-  antagonist: string;
-  supportingCharacters: string;
-  characterCount: number;
+  characters: Character[]; // New List-based approach
   sceneCount: number;
+  characterCount: number;
 }
 
 export interface ImageStyleConfig {
@@ -40,10 +46,11 @@ export interface Scene {
   narrative: string;
   imagePrompt: string;
   motionPrompt: string;
+  characterNames: string[]; // List of characters present in this scene
   // Generated Media
   audioData?: string; // Base64 WAV
   imageUrl?: string;
-  videoUrl?: string;
+  // Video URL removed as per request
 }
 
 export interface StoryOutput {
@@ -54,34 +61,23 @@ export interface StoryOutput {
 
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
 
-export type ImageModel = 
-  | 'gemini-2.5-flash-image' 
-  | 'gemini-3-pro-image-preview' 
-  | 'imagen-3.0-generate-001'
-  | string;
-
-export type VideoModel = 
-  | 'veo-3.1-fast-generate-preview' 
-  | 'veo-3.1-generate-preview'
-  | 'kling-custom'
-  | string;
+// Allow both Pro (Primary) and Flash (Fallback)
+export type ImageModel = 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image';
 
 export interface MediaSettings {
   aspectRatio: AspectRatio;
   imageModel: ImageModel;
-  videoModel: VideoModel;
-  videoResolution: '720p' | '1080p';
-  customVideoEndpoint?: string; // For Kling or other external APIs
-  customVideoKey?: string;      // Key for external API
 }
 
 export interface Project {
   id: string;
+  title?: string; // For archive display
+  lastSaved?: number;
   createdAt: number;
   config: StoryConfig;
   output: StoryOutput | null;
   mediaSettings: MediaSettings;
-  imageStyle: ImageStyleConfig; // Added this
+  imageStyle: ImageStyleConfig;
   voiceConfig: VoiceConfig;
   apiKey?: string;
 }
@@ -161,32 +157,24 @@ export const TRANSLATIONS = {
     timeline_script: 'السيناريو',
     timeline_audio: 'الصوت',
     timeline_visuals: 'المرئيات',
-    saveProject: 'حفظ المشروع',
-    loadProject: 'تحميل مشروع',
-    downloadMp3: 'تحميل MP3',
-    generateImage: 'توليد صورة',
-    generateVideo: 'توليد فيديو',
-    uploadImage: 'رفع صورة',
+    saveProject: 'تنزيل المشروع',
+    archiveProject: 'حفظ في الأرشيف',
+    openArchive: 'الأرشيف',
+    loadProject: 'تحميل ملف',
+    downloadMp3: 'MP3',
+    generateImage: 'توليد',
+    generateAllAudio: 'توليد كل الأصوات',
+    generateAllImages: 'توليد كل الصور',
+    uploadImage: 'رفع',
     settings: 'الإعدادات',
-    apiSettings: 'إعدادات API والنماذج',
-    apiKeyPlaceholder: 'أدخل مفتاح Gemini API الخاص بك...',
-    customModelPlaceholder: 'اسم النموذج المخصص (مثال: gemini-experimental)',
+    apiSettings: 'إعدادات API',
+    apiKeyPlaceholder: 'أدخل مفتاح Gemini API...',
     aspectRatio: 'أبعاد الصورة',
     modelQuality: 'نموذج التوليد',
-    model_fast: 'مجاني (Flash/Nano)',
-    pro: 'احترافي (Pro) - يتطلب دفع',
-    artistic: 'فني (Imagen 3) - يتطلب دفع',
-    quality: 'جودة عالية (Veo) - يتطلب دفع',
-    kling: 'Kling AI (مخصص)',
-    customVideoEndpoint: 'رابط API الفيديو المخصص',
-    customVideoKey: 'مفتاح API الفيديو المخصص',
-    resolution: 'الدقة',
-    platform_youtube: 'يوتيوب (16:9)',
-    platform_tiktok: 'تيك توك (9:16)',
-    platform_insta: 'انستقرام (1:1)',
+    pro: 'Gemini 3.0 Pro (جودة عالية)',
     back: 'رجوع',
     generate: 'تشغيل القصة',
-    regenerate: 'إعادة التوليد',
+    regenerate: 'إعادة',
     chooseCategory: 'اختر نوع القصة',
     yourIdea: 'فكرة القصة',
     yourIdeaPlaceholder: 'اكتب الفكرة الأساسية...',
@@ -198,7 +186,6 @@ export const TRANSLATIONS = {
     voiceType: 'نوع الصوت',
     tone: 'نبرة الصوت',
     accent: 'اللهجة',
-    orCustom: 'أو اكتب اسم نموذج مخصص',
     templates: 'القوالب الجاهزة',
     useTemplate: 'استخدم القالب',
     // New Scenario Fields
@@ -219,6 +206,11 @@ export const TRANSLATIONS = {
     thinking: 'جاري التفكير...',
     dialectDesc: 'اختر اللهجة المستخدمة في سرد القصة.',
     toneDesc: 'يحدد النغمة العاطفية للكتابة.',
+    addCharacter: 'أضف شخصية',
+    analyzeImage: 'تحليل الصورة',
+    characterName: 'الاسم',
+    characterDesc: 'الوصف البصري (للصور)',
+    autoGenCharacters: 'توليد الشخصيات تلقائياً',
     // Visual Styles
     visualStyle: 'النمط البصري',
     artStyle: 'النمط الفني',
@@ -271,29 +263,21 @@ export const TRANSLATIONS = {
     timeline_script: 'Script',
     timeline_audio: 'Audio',
     timeline_visuals: 'Visuals',
-    saveProject: 'Save Project',
-    loadProject: 'Load Project',
-    downloadMp3: 'Download MP3',
-    generateImage: 'Generate Image',
-    generateVideo: 'Generate Video',
-    uploadImage: 'Upload Image',
+    saveProject: 'Download File',
+    archiveProject: 'Save to Archive',
+    openArchive: 'Archive',
+    loadProject: 'Load File',
+    downloadMp3: 'MP3',
+    generateImage: 'Generate',
+    generateAllAudio: 'Generate All Audio',
+    generateAllImages: 'Generate All Images',
+    uploadImage: 'Upload',
     settings: 'Settings',
-    apiSettings: 'API & Model Settings',
+    apiSettings: 'API Settings',
     apiKeyPlaceholder: 'Enter your custom Gemini API Key...',
-    customModelPlaceholder: 'Custom Model ID (e.g. gemini-experimental)',
     aspectRatio: 'Aspect Ratio',
     modelQuality: 'Generation Model',
-    model_fast: 'Free (Flash/Nano)',
-    pro: 'Professional (Pro) - Paid',
-    artistic: 'Artistic (Imagen 3) - Paid',
-    quality: 'High Quality (Veo) - Paid',
-    kling: 'Kling AI (Custom)',
-    customVideoEndpoint: 'Custom Video API Endpoint',
-    customVideoKey: 'Custom Video API Key',
-    resolution: 'Resolution',
-    platform_youtube: 'YouTube (16:9)',
-    platform_tiktok: 'TikTok/Reels (9:16)',
-    platform_insta: 'Square (1:1)',
+    pro: 'Gemini 3.0 Pro (High Quality)',
     back: 'Back',
     generate: 'Generate Story',
     regenerate: 'Regenerate',
@@ -308,7 +292,6 @@ export const TRANSLATIONS = {
     voiceType: 'Voice Type',
     tone: 'Tone',
     accent: 'Accent',
-    orCustom: 'Or type custom model ID',
     templates: 'Templates',
     useTemplate: 'Use Template',
     // New Scenario Fields
@@ -329,6 +312,11 @@ export const TRANSLATIONS = {
     thinking: 'Thinking...',
     dialectDesc: 'Choose the dialect for the narration text generation.',
     toneDesc: 'Sets the emotional tone of the story writing.',
+    addCharacter: 'Add Character',
+    analyzeImage: 'Analyze Image',
+    characterName: 'Name',
+    characterDesc: 'Visual Description (for consistency)',
+    autoGenCharacters: 'Auto-Generate Characters',
     // Visual Styles
     visualStyle: 'Visual Style',
     artStyle: 'Art Style',
